@@ -14,13 +14,9 @@ import (
 func main() {
 
 	argsWithoutProg := os.Args[1:]
-	if len(argsWithoutProg) != 2 {
-		panic("Please provide  two numbers to add!")
+	if len(argsWithoutProg) == 0 {
+		panic("Usage: program [method] [options...]")
 	}
-	one,_ := strconv.Atoi(argsWithoutProg[0])
-	two,_ := strconv.Atoi(argsWithoutProg[1])
-
-	fmt.Printf("Let's find out what %d plus %d equals!\n", one, two)
 
 	cc, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
 	if err != nil {
@@ -30,8 +26,24 @@ func main() {
 
 	c := calculatorpb.NewCalculatorServiceClient(cc)
 	fmt.Printf("Connected to client: %v\n", c)
-	doUnary(c, int64(one), int64(two))
 
+	if argsWithoutProg[0] == "sum" {
+		if len(argsWithoutProg) != 3 {
+			panic("You must provide two numbers for summing!")
+		}
+		one,_ := strconv.Atoi(argsWithoutProg[1])
+		two,_ := strconv.Atoi(argsWithoutProg[2])
+		fmt.Printf("Let's find out what %d plus %d equals!\n", one, two)
+		doUnary(c, int64(one), int64(two))
+
+	} else if argsWithoutProg[0] == "prime" {
+		if len(argsWithoutProg) != 2 {
+			panic("You must provide a single number for prime decomposition!")
+		}
+		num,_ := strconv.Atoi(argsWithoutProg[1])
+		fmt.Printf("Let's find out what the prime decomposition of %d is!\n", num)
+		doStream(c, int64(num))
+	}
 }
 
 func doUnary(c calculatorpb.CalculatorServiceClient, one int64, two int64) {

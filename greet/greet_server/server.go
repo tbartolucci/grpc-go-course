@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/tbartolucci/udemy-grpc/greet/greetpb"
 	"google.golang.org/grpc"
+	"io"
 	"log"
 	"net"
 	"time"
@@ -30,7 +31,7 @@ func (s *server) GreetManyTimes(request *greetpb.GreetManyTimesRequest, stream g
 	log.Print("GreetManyTimes was invoked\n")
 	firstName := request.Greeting.GetFirstName()
 	for i := 0; i < 10;  i++ {
-		result := fmt.Sprintf("Hello &s number &d\n", firstName, i)
+		result := fmt.Sprintf("Hello %s number %d\n", firstName, i)
 		res := &greetpb.GreetManytimesResponse{
 			Result: result,
 		}
@@ -41,7 +42,23 @@ func (s *server) GreetManyTimes(request *greetpb.GreetManyTimesRequest, stream g
 }
 
 func (s *server) LongGreet(greetServer greetpb.GreetService_LongGreetServer) error {
-	panic("implement me")
+	result := "Hello "
+	for {
+		req, err := greetServer.Recv()
+		if err == io.EOF {
+			//client stream is complete
+			return greetServer.SendAndClose(&greetpb.LongGreetResponse{
+				Result: result,
+			})
+		}
+		if err != nil {
+			log.Fatalf("error while reading client stream: %v", err)
+		}
+
+		firstName := req.GetGreeting().GetFirstName()
+		result += firstName + "! "
+	}
+
 }
 
 func (s *server) GreetEveryone(everyoneServer greetpb.GreetService_GreetEveryoneServer) error {
