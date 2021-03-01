@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/tbartolucci/udemy-grpc/calculator/calculatorpb"
 	"google.golang.org/grpc"
+	"io"
 	"log"
 	"net"
 )
@@ -46,6 +47,31 @@ func (s *CalculatorServer) Decompose(request *calculatorpb.PrimeRequest,stream c
 	}
 	return nil
 }
+
+func (s * CalculatorServer) Average(stream calculatorpb.CalculatorService_AverageServer) error {
+	var sum int64
+	var count int64
+	sum = 0
+	count = 0
+
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			//client stream is complete
+			return stream.SendAndClose(&calculatorpb.AverageResponse{
+				Answer: float32(sum/count),
+			})
+		}
+		if err != nil {
+			log.Fatalf("error while reading client stream: %v", err)
+		}
+		sum = sum + req.GetNumber()
+		count++
+	}
+
+	return nil
+}
+
 
 func main() {
 	fmt.Println("Sum Server Starting....")
