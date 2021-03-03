@@ -42,7 +42,9 @@ func main() {
 		}
 		num,_ := strconv.Atoi(argsWithoutProg[1])
 		fmt.Printf("Let's find out what the prime decomposition of %d is!\n", num)
-		doStream(c, int64(num))
+		handleStream(c, int64(num))
+	} else if argsWithoutProg[0] == "average" {
+		doStream(c, argsWithoutProg[1:])
 	}
 }
 
@@ -59,7 +61,7 @@ func doUnary(c calculatorpb.CalculatorServiceClient, one int64, two int64) {
 	log.Printf("Response: %v", res.Result)
 }
 
-func doStream(c calculatorpb.CalculatorServiceClient, prime int64) {
+func handleStream(c calculatorpb.CalculatorServiceClient, prime int64) {
 	req :=  &calculatorpb.PrimeRequest{
 		PrimeNumber: prime,
 	}
@@ -82,6 +84,32 @@ func doStream(c calculatorpb.CalculatorServiceClient, prime int64) {
 
 		log.Printf("Response from stream: %v", msg.GetResult())
 	}
+}
 
+func doStream(c calculatorpb.CalculatorServiceClient, args []string) {
+	fmt.Println("Starting to stream to the server....")
+	stream, err := c.Average(context.Background())
+	if err != nil {
+		log.Fatalf("Error creating stream: %v", err)
+	}
 
+	var requests []*calculatorpb.AverageRequest
+	for _,numString := range args {
+		num,_ := strconv.Atoi(numString)
+		requests = append(requests, &calculatorpb.AverageRequest{
+			Number : int64(num),
+		})
+	}
+
+	for _, req := range requests {
+		log.Printf("Sending %v request\n", req.Number )
+		stream.Send(req)
+	}
+
+	res, err := stream.CloseAndRecv()
+	if err != nil {
+		log.Fatalf("Error receiving response: %v", err)
+	}
+
+	fmt.Printf("Response: %v\n", res.Answer)
 }
