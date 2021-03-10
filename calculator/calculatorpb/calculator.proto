@@ -28,8 +28,17 @@ message AverageResponse {
   double answer = 1;
 }
 
+message MaximumRequest {
+  int64 number = 1;
+}
+
+message MaximumResponse {
+  int64 result = 1;
+}
+
 service CalculatorService {
   rpc Sum(SumRequest) returns (SumResponse) {};
   rpc Decompose(PrimeRequest) returns (stream PrimeResponse) {};
   rpc Average(stream AverageRequest) returns (AverageResponse) {};
+  rpc Maximum(stream MaximumRequest)  returns (stream MaximumResponse) {};
 }

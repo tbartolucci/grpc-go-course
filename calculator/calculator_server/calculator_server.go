@@ -72,6 +72,29 @@ func (s * CalculatorServer) Average(stream calculatorpb.CalculatorService_Averag
 	return nil
 }
 
+func (s *CalculatorServer) Maximum(stream calculatorpb.CalculatorService_MaximumServer) error {
+	max := int64(0)
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			log.Fatalf("error while reading client stream: %v", err)
+			return err
+		}
+		num := req.GetNumber()
+		if num > max {
+			max = num
+		}
+		stream.Send(&calculatorpb.MaximumResponse{
+			Result : max,
+		})
+
+	}
+	return nil
+}
+
 
 func main() {
 	fmt.Println("Sum Server Starting....")

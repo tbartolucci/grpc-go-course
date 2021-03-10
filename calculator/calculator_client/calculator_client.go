@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -45,7 +46,49 @@ func main() {
 		handleStream(c, int64(num))
 	} else if argsWithoutProg[0] == "average" {
 		doStream(c, argsWithoutProg[1:])
+	} else if argsWithoutProg[0] == "max" {
+		doBiDi(c, argsWithoutProg[1:])
 	}
+}
+
+func doBiDi(c calculatorpb.CalculatorServiceClient, numbers []string) {
+	fmt.Println("Do Bidirectional Streaming")
+	// create a stream by invoking the cient
+	stream, err := c.Maximum(context.Background())
+	if err != nil {
+		log.Fatalf("error while creating stream: %v", err)
+		return
+	}
+
+	waitc := make(chan struct{})
+	// we send a bunch of messages to the client (go routine)
+	go func() {
+		for _, numString := range numbers{
+			num,_ := strconv.Atoi(numString)
+			req := &calculatorpb.MaximumRequest{ Number : int64(num) }
+			fmt.Printf("Sending number: %v\n", req)
+			stream.Send(req)
+			time.Sleep(1000 * time.Millisecond)
+		}
+		stream.CloseSend()
+	}()
+	// we receive a bunch of message the client (go routine)
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("error while receiving: %v", err)
+				break
+			}
+			fmt.Printf("Current Max: %v\n", res.GetResult())
+		}
+		close(waitc)
+	}()
+	// block until everything is done
+	<-waitc
 }
 // Send Add Request
 func doUnary(c calculatorpb.CalculatorServiceClient, one int64, two int64) {
