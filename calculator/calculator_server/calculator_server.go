@@ -59,7 +59,7 @@ func (s * CalculatorServer) Average(stream calculatorpb.CalculatorService_Averag
 		if err == io.EOF {
 			//client stream is complete
 			return stream.SendAndClose(&calculatorpb.AverageResponse{
-				Answer: float32(sum/count),
+				Answer: float64(sum)/float64(count),
 			})
 		}
 		if err != nil {
