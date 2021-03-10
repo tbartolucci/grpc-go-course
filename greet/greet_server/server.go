@@ -62,7 +62,27 @@ func (s *server) LongGreet(greetServer greetpb.GreetService_LongGreetServer) err
 }
 
 func (s *server) GreetEveryone(everyoneServer greetpb.GreetService_GreetEveryoneServer) error {
-	panic("implement me")
+
+	for {
+		req, err := everyoneServer.Recv()
+		if err == io.EOF {
+			return nil // client stream empty
+		}
+		if err != nil {
+			log.Fatalf("Error while reading client stream: %v", err)
+			return err
+		}
+
+		fn := req.GetGreeting().GetFirstName()
+		result := "Hello " + fn + "!\n"
+		err = everyoneServer.Send(&greetpb.GreetEveryoneResponse{
+			Result: result,
+		})
+		if err != nil {
+			log.Fatalf("Error while sending to client: %v", err)
+			return err
+		}
+	}
 }
 
 func (s *server) GreetWithDeadline(ctx context.Context, request *greetpb.GreetWithDeadlineRequest) (*greetpb.GreetWithDeadlineResponse, error) {

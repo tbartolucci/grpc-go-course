@@ -47,7 +47,7 @@ func main() {
 		doStream(c, argsWithoutProg[1:])
 	}
 }
-
+// Send Add Request
 func doUnary(c calculatorpb.CalculatorServiceClient, one int64, two int64) {
 	req := &calculatorpb.SumRequest{
 		AddendOne: one,
@@ -60,7 +60,7 @@ func doUnary(c calculatorpb.CalculatorServiceClient, one int64, two int64) {
 
 	log.Printf("Response: %v", res.Result)
 }
-
+// Send Prime Request
 func handleStream(c calculatorpb.CalculatorServiceClient, prime int64) {
 	req :=  &calculatorpb.PrimeRequest{
 		PrimeNumber: prime,
@@ -85,7 +85,7 @@ func handleStream(c calculatorpb.CalculatorServiceClient, prime int64) {
 		log.Printf("Response from stream: %v", msg.GetResult())
 	}
 }
-
+// Send Average Request
 func doStream(c calculatorpb.CalculatorServiceClient, args []string) {
 	fmt.Println("Starting to stream to the server....")
 	stream, err := c.Average(context.Background())
