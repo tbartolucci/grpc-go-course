@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/tbartolucci/udemy-grpc/calculator/calculatorpb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io"
 	"log"
 	"os"
@@ -48,7 +50,30 @@ func main() {
 		doStream(c, argsWithoutProg[1:])
 	} else if argsWithoutProg[0] == "max" {
 		doBiDi(c, argsWithoutProg[1:])
+	} else if argsWithoutProg[0] == "sqrt" {
+		num,_ := strconv.Atoi(argsWithoutProg[1])
+		doErrorUnary(c, int64(num))
 	}
+}
+
+func doErrorUnary(c calculatorpb.CalculatorServiceClient, number int64) {
+	res, err := c.SquareRoot(context.Background(), &calculatorpb.SquareRootRequest{ Number: number})
+	if err != nil {
+		respErr,ok := status.FromError(err)
+		if ok {
+			// actual error from GRPC, user error
+			if respErr.Code() == codes.InvalidArgument {
+				fmt.Println("We probably sent a negative number.")
+			}
+			fmt.Printf("[%v] %s\n", respErr.Code(), respErr.Message())
+			return
+		} else {
+			// non standard error
+			log.Fatalf("Big error calling squareroot: %v", err)
+			return
+		}
+	}
+	fmt.Printf("Result of Square root of %v: %v\n", number, res.GetNumber())
 }
 
 func doBiDi(c calculatorpb.CalculatorServiceClient, numbers []string) {
