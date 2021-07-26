@@ -6,6 +6,7 @@ import (
 	"github.com/tbartolucci/udemy-grpc/calculator/calculatorpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 	"io"
 	"log"
@@ -99,6 +100,10 @@ func (s *CalculatorServer) Maximum(stream calculatorpb.CalculatorService_Maximum
 }
 
 func (s *CalculatorServer) SquareRoot(ctx context.Context, req *calculatorpb.SquareRootRequest) (*calculatorpb.SquareRootResponse, error) {
+	if context.Canceled == ctx.Err() {
+		log.Println("Client canceled the request")
+		return nil, status.Error(codes.Canceled, "the client canceled the request")
+	}
 	num := req.GetNumber()
 	if num < 0 {
 		return nil, status.Errorf(
@@ -112,14 +117,21 @@ func (s *CalculatorServer) SquareRoot(ctx context.Context, req *calculatorpb.Squ
 
 
 func main() {
-	fmt.Println("Sum Server Starting....")
+	fmt.Println("Calculator Server Starting....")
 
 	lis, err := net.Listen("tcp", "0.0.0.0:50051")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	s := grpc.NewServer()
+	certFile := "ssl/server.crt"
+	keyFile := "ssl/server.pem"
+	creds, credsErr := credentials.NewServerTLSFromFile(certFile, keyFile)
+	if credsErr != nil {
+		log.Fatalf("Failed loading certificates: %v", credsErr)
+	}
+	opts := grpc.Creds(creds)
+	s := grpc.NewServer(opts)
 	calculatorpb.RegisterCalculatorServiceServer(s, &CalculatorServer{})
 
 	if err := s.Serve(lis); err != nil {

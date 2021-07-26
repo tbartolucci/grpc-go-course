@@ -6,6 +6,7 @@ import (
 	"github.com/tbartolucci/udemy-grpc/calculator/calculatorpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 	"io"
 	"log"
@@ -21,7 +22,13 @@ func main() {
 		panic("Usage: program [method] [options...]")
 	}
 
-	cc, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	certFile := "ssl/ca.crt"
+	creds, sslErr := credentials.NewClientTLSFromFile(certFile, "")
+	if sslErr != nil {
+		log.Fatalf("Error loading crt file: %v", sslErr)
+	}
+	opts := grpc.WithTransportCredentials(creds)
+	cc, err := grpc.Dial("localhost:50051", opts)
 	if err != nil {
 		log.Fatalf("Failed to dial grpc server: %v", err)
 	}
@@ -30,6 +37,9 @@ func main() {
 	c := calculatorpb.NewCalculatorServiceClient(cc)
 	fmt.Printf("Connected to client: %v\n", c)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+
 	if argsWithoutProg[0] == "sum" {
 		if len(argsWithoutProg) != 3 {
 			panic("You must provide two numbers for summing!")
@@ -37,7 +47,7 @@ func main() {
 		one,_ := strconv.Atoi(argsWithoutProg[1])
 		two,_ := strconv.Atoi(argsWithoutProg[2])
 		fmt.Printf("Let's find out what %d plus %d equals!\n", one, two)
-		doUnary(c, int64(one), int64(two))
+		doUnary(c, ctx, int64(one), int64(two))
 
 	} else if argsWithoutProg[0] == "prime" {
 		if len(argsWithoutProg) != 2 {
@@ -45,24 +55,26 @@ func main() {
 		}
 		num,_ := strconv.Atoi(argsWithoutProg[1])
 		fmt.Printf("Let's find out what the prime decomposition of %d is!\n", num)
-		handleStream(c, int64(num))
+		handleStream(c, ctx, int64(num))
 	} else if argsWithoutProg[0] == "average" {
-		doStream(c, argsWithoutProg[1:])
+		doStream(c, ctx, argsWithoutProg[1:])
 	} else if argsWithoutProg[0] == "max" {
-		doBiDi(c, argsWithoutProg[1:])
+		doBiDi(c, ctx, argsWithoutProg[1:])
 	} else if argsWithoutProg[0] == "sqrt" {
 		num,_ := strconv.Atoi(argsWithoutProg[1])
-		doErrorUnary(c, int64(num))
+		doErrorUnary(c, ctx, int64(num))
 	}
 }
 
-func doErrorUnary(c calculatorpb.CalculatorServiceClient, number int64) {
-	res, err := c.SquareRoot(context.Background(), &calculatorpb.SquareRootRequest{ Number: number})
+func doErrorUnary(c calculatorpb.CalculatorServiceClient, ctx context.Context, number int64) {
+	res, err := c.SquareRoot(ctx, &calculatorpb.SquareRootRequest{ Number: number})
 	if err != nil {
 		respErr,ok := status.FromError(err)
 		if ok {
 			// actual error from GRPC, user error
-			if respErr.Code() == codes.InvalidArgument {
+			if respErr.Code() == codes.DeadlineExceeded {
+				fmt.Println("Timeout was hit! Deadline exceeded.")
+			} else if respErr.Code() == codes.InvalidArgument {
 				fmt.Println("We probably sent a negative number.")
 			}
 			fmt.Printf("[%v] %s\n", respErr.Code(), respErr.Message())
@@ -76,10 +88,10 @@ func doErrorUnary(c calculatorpb.CalculatorServiceClient, number int64) {
 	fmt.Printf("Result of Square root of %v: %v\n", number, res.GetNumber())
 }
 
-func doBiDi(c calculatorpb.CalculatorServiceClient, numbers []string) {
+func doBiDi(c calculatorpb.CalculatorServiceClient, ctx context.Context, numbers []string) {
 	fmt.Println("Do Bidirectional Streaming")
 	// create a stream by invoking the cient
-	stream, err := c.Maximum(context.Background())
+	stream, err := c.Maximum(ctx)
 	if err != nil {
 		log.Fatalf("error while creating stream: %v", err)
 		return
@@ -116,12 +128,12 @@ func doBiDi(c calculatorpb.CalculatorServiceClient, numbers []string) {
 	<-waitc
 }
 // Send Add Request
-func doUnary(c calculatorpb.CalculatorServiceClient, one int64, two int64) {
+func doUnary(c calculatorpb.CalculatorServiceClient, ctx context.Context, one int64, two int64) {
 	req := &calculatorpb.SumRequest{
 		AddendOne: one,
 		AddendTwo: two,
 	}
-	res, err := c.Sum(context.Background(), req)
+	res, err := c.Sum(ctx, req)
 	if err != nil {
 		log.Fatalf("error while calling Sum RPC: %v", err)
 	}
@@ -129,12 +141,12 @@ func doUnary(c calculatorpb.CalculatorServiceClient, one int64, two int64) {
 	log.Printf("Response: %v", res.Result)
 }
 // Send Prime Request
-func handleStream(c calculatorpb.CalculatorServiceClient, prime int64) {
+func handleStream(c calculatorpb.CalculatorServiceClient, ctx context.Context, prime int64) {
 	req :=  &calculatorpb.PrimeRequest{
 		PrimeNumber: prime,
 	}
 
-	resultStream, err := c.Decompose(context.Background(), req)
+	resultStream, err := c.Decompose(ctx, req)
 	if err != nil {
 		log.Fatalf("error while calling Prime RPC: %v", err)
 	}
@@ -154,9 +166,9 @@ func handleStream(c calculatorpb.CalculatorServiceClient, prime int64) {
 	}
 }
 // Send Average Request
-func doStream(c calculatorpb.CalculatorServiceClient, args []string) {
+func doStream(c calculatorpb.CalculatorServiceClient, ctx context.Context, args []string) {
 	fmt.Println("Starting to stream to the server....")
-	stream, err := c.Average(context.Background())
+	stream, err := c.Average(ctx)
 	if err != nil {
 		log.Fatalf("Error creating stream: %v", err)
 	}
