@@ -22,6 +22,8 @@ type CalculatorServiceClient interface {
 	Decompose(ctx context.Context, in *PrimeRequest, opts ...grpc.CallOption) (CalculatorService_DecomposeClient, error)
 	Average(ctx context.Context, opts ...grpc.CallOption) (CalculatorService_AverageClient, error)
 	Maximum(ctx context.Context, opts ...grpc.CallOption) (CalculatorService_MaximumClient, error)
+	// this rpc will throw an exception if the sent number is negative
+	// the error being sent is of type INVALID ARGUMENT
 	SquareRoot(ctx context.Context, in *SquareRootRequest, opts ...grpc.CallOption) (*SquareRootResponse, error)
 }
 
@@ -156,6 +158,8 @@ type CalculatorServiceServer interface {
 	Decompose(*PrimeRequest, CalculatorService_DecomposeServer) error
 	Average(CalculatorService_AverageServer) error
 	Maximum(CalculatorService_MaximumServer) error
+	// this rpc will throw an exception if the sent number is negative
+	// the error being sent is of type INVALID ARGUMENT
 	SquareRoot(context.Context, *SquareRootRequest) (*SquareRootResponse, error)
 	mustEmbedUnimplementedCalculatorServiceServer()
 }
