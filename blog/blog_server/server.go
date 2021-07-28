@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/tbartolucci/udemy-grpc/blog/blogpb"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -56,6 +57,30 @@ func (*server) CreateBlog(ctx context.Context, req *blogpb.CreateBlogRequest) (*
 			AuthorId: blog.GetAuthorId(),
 			Title: blog.GetTitle(),
 			Content: blog.GetContent(),
+		},
+	}, nil
+}
+
+func (*server) ReadBlog(ctx context.Context, req *blogpb.ReadBlogRequest) (*blogpb.ReadBlogResponse, error) {
+	blogId := req.GetBlogId()
+	oid, err := primitive.ObjectIDFromHex(blogId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("Cannot parse ID"))
+	}
+	data := &blogItem{}
+
+	res := collection.FindOne(context.Background(), bson.M{"_id": oid} )
+	decodeErr := res.Decode(data)
+	if decodeErr != nil {
+		return  nil, status.Errorf( codes.NotFound, fmt.Sprintf("Could not locate blog by id"))
+	}
+
+	return &blogpb.ReadBlogResponse{
+		Blog : &blogpb.Blog{
+			Id: data.ID.Hex(),
+			AuthorId: data.AuthorID,
+			Content: data.Content,
+			Title: data.Title,
 		},
 	}, nil
 }
